@@ -49,13 +49,6 @@
       "claimed": true,
       "claimedAt": "2026-05-28T08:28:46.078Z",
       "addedAt": "2026-05-28T08:28:05.160Z"
-    },
-    {
-      "orderId": "zxc",
-      "cardKey": "789",
-      "claimed": false,
-      "claimedAt": "",
-      "addedAt": "2026-05-28T08:28:05.160Z"
     }
   ]
 }
