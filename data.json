@@ -21,6 +21,13 @@
       "claimed": false,
       "claimedAt": "",
       "addedAt": "2026-05-28T08:19:16.520Z"
+    },
+    {
+      "orderId": "230618",
+      "cardKey": "hyx",
+      "claimed": false,
+      "claimedAt": "",
+      "addedAt": "2026-05-28T08:23:02.719Z"
     }
   ]
 }
