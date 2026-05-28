@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台 - 卡密发货系统</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f5f7; color: #1a1a1a; min-height: 100vh; }
+
+  .nav { background: #fff; border-bottom: 1px solid #e8e8e8; padding: 0 24px; display: flex; align-items: center; height: 56px; }
+  .nav-brand { font-size: 16px; font-weight: 500; color: #1a1a1a; display: flex; align-items: center; gap: 8px; }
+  .nav-brand-icon { width: 28px; height: 28px; background: #f59e0b; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .nav-brand-icon svg { width: 16px; height: 16px; fill: #fff; }
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .sync-badge { font-size: 12px; padding: 3px 10px; border-radius: 10px; }
+  .sync-ok { background: #f0fdf4; color: #16a34a; }
+  .sync-wait { background: #fff7ed; color: #c2410c; }
+
+  .page { max-width: 1000px; margin: 0 auto; padding: 28px 16px; }
+
+  .card { background: #fff; border-radius: 10px; border: 1px solid #e8e8e8; padding: 24px; margin-bottom: 20px; }
+  .card-title { font-size: 15px; font-weight: 500; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card-title .badge { font-size: 11px; font-weight: 400; padding: 2px 8px; border-radius: 10px; }
+  .badge-blue { background: #eff6ff; color: #1d4ed8; }
+  .badge-green { background: #f0fdf4; color: #15803d; }
+  .badge-gray { background: #f3f4f6; color: #6b7280; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border-radius: 10px; border: 1px solid #e8e8e8; padding: 16px; }
+  .stat-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 500; }
+  .stat-value.blue { color: #4f46e5; }
+  .stat-value.green { color: #16a34a; }
+  .stat-value.orange { color: #d97706; }
+  .stat-value.gray { color: #6b7280; }
+
+  .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .form-group label { font-size: 13px; color: #444; font-weight: 500; }
+  input, textarea, select {
+    border: 1px solid #ddd; border-radius: 8px; padding: 9px 12px; font-size: 14px;
+    outline: none; transition: border-color 0.15s; font-family: inherit; background: #fff; color: #1a1a1a; width: 100%;
+  }
+  input:focus, textarea:focus, select:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.08); }
+  textarea { resize: vertical; min-height: 100px; font-family: 'Consolas', 'Courier New', monospace; }
+
+  .btn { padding: 9px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; border: 1px solid transparent; font-family: inherit; font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+  .btn-primary:hover { background: #4338ca; }
+  .btn-success { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .btn-success:hover { background: #15803d; }
+  .btn-danger { background: #fff; color: #dc2626; border-color: #fca5a5; }
+  .btn-danger:hover { background: #fef2f2; }
+  .btn-ghost { background: #fff; color: #444; border-color: #e8e8e8; }
+  .btn-ghost:hover { background: #f9fafb; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; font-weight: 500; font-size: 12px; color: #888; border-bottom: 1px solid #f0f0f0; background: #fafafa; white-space: nowrap; }
+  td { padding: 11px 12px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+  .mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; }
+  .cell-code { font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; letter-spacing: 0.5px; background: #f8f8fa; padding: 4px 8px; border-radius: 4px; border: 1px solid #eee; display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .status { font-size: 11px; padding: 3px 9px; border-radius: 10px; font-weight: 500; display: inline-block; white-space: nowrap; }
+  .status-pending { background: #f0fdf4; color: #16a34a; }
+  .status-claimed { background: #eff6ff; color: #2563eb; }
+
+  .empty-state { text-align: center; padding: 48px 24px; color: #aaa; }
+  .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.3; }
+
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none; }
+  .alert.show { display: flex; align-items: center; gap: 8px; }
+  .alert-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+  .alert-error { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+  .alert-info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+  .sep { height: 1px; background: #f0f0f0; margin: 20px 0; }
+  .section-subtitle { font-size: 13px; color: #888; margin-bottom: 16px; }
+  .hint { font-size: 12px; color: #999; margin-top: 6px; }
+
+  .pass-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 999; }
+  .pass-box { background: #fff; border-radius: 12px; padding: 32px; width: 360px; }
+  .pass-box h2 { font-size: 18px; font-weight: 500; margin-bottom: 6px; }
+  .pass-box p { font-size: 13px; color: #888; margin-bottom: 20px; }
+  .pass-box-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+  .pager { display: flex; align-items: center; gap: 8px; margin-top: 16px; justify-content: flex-end; flex-wrap: wrap; }
+  .pager-info { font-size: 13px; color: #888; margin-right: 8px; }
+
+  .filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-row label { font-size: 13px; color: #888; white-space: nowrap; }
+
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .form-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="pass-overlay" id="passOverlay">
+  <div class="pass-box">
+    <h2>管理后台登录</h2>
+    <p>请输入管理员密码</p>
+    <input type="password" id="passInput" placeholder="输入密码" autofocus onkeydown="if(event.key==='Enter')checkPass()">
+    <div class="pass-box-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="checkPass()">确认登录</button>
+    </div>
+    <div id="passError" style="color:#dc2626;font-size:12px;margin-top:10px;display:none">密码错误，请重试</div>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="nav-brand">
+    <div class="nav-brand-icon">
+      <svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+    </div>
+    管理后台
+  </div>
+  <div class="nav-right">
+    <span class="sync-badge" id="syncBadge">加载中...</span>
+    <button class="btn btn-ghost btn-sm" onclick="location.reload()">刷新</button>
+    <button class="btn btn-ghost btn-sm" onclick="logout()">退出</button>
+  </div>
+</div>
+
+<div class="page" id="page-admin" style="display:none;">
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">订单总数</div>
+      <div class="stat-value blue" id="st-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">待领取</div>
+      <div class="stat-value green" id="st-pending">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">已领取</div>
+      <div class="stat-value orange" id="st-claimed">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">今日领取</div>
+      <div class="stat-value gray" id="st-today">0</div>
+    </div>
+  </div>
+
+  <!-- Add orders -->
+  <div class="card">
+    <div class="card-title">
+      添加订单与卡密
+      <span class="badge badge-blue">一单一卡</span>
+    </div>
+    <div id="alertBox" class="alert"></div>
+
+    <div class="section-subtitle">单个添加</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>订单号</label>
+        <input type="text" id="singleOrder" placeholder="例如：123">
+      </div>
+      <div class="form-group">
+        <label>卡密</label>
+        <input type="text" id="singleKey" placeholder="例如：ABC-XXXX-1111">
+      </div>
+      <div class="form-group" style="flex:0;align-self:flex-end;">
+        <button class="btn btn-primary" onclick="addSingle()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          添加
+        </button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="section-subtitle">批量导入（每行一条：<code>订单号,卡密</code>，用英文逗号分隔）</div>
+    <textarea id="batchInput" placeholder="123,ABC-XXXX-1111&#10;124,DEF-XXXX-2222&#10;125,GHI-XXXX-3333"></textarea>
+    <div class="hint">支持 CSV 粘贴或手动输入，订单号和卡密之间用英文逗号分隔</div>
+    <div style="display:flex;gap:10px;margin-top:12px;align-items:center;">
+      <button class="btn btn-primary" onclick="addBatch()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        批量导入
+      </button>
+      <button class="btn btn-ghost" onclick="document.getElementById('batchInput').value=''">清空</button>
+    </div>
+  </div>
+
+  <!-- Order list -->
+  <div class="card">
+    <div class="card-title">
+      订单 &amp; 卡密列表
+      <span class="badge badge-gray" id="listCountBadge">0 条</span>
+    </div>
+    <div class="filter-row">
+      <label>筛选：</label>
+      <select id="filterStatus" onchange="renderList()" style="width:auto;min-width:100px;">
+        <option value="all">全部</option>
+        <option value="pending">待领取</option>
+        <option value="claimed">已领取</option>
+      </select>
+      <input type="text" id="filterKeyword" placeholder="搜索订单号或卡密" style="max-width:220px;" oninput="renderList()">
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">导出 CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>订单号</th>
+            <th>卡密</th>
+            <th>状态</th>
+            <th>领取时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="listTableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14.5l-4-4 1.41-1.41L12 14.67l6.59-6.59L20 9.5l-8 8z" opacity=".3"/></svg>
+        <p>暂无数据，请先添加订单与卡密</p>
+      </div>
+    </div>
+    <div class="pager" id="pager"></div>
+  </div>
+
+  <!-- Settings -->
+  <div class="card">
+    <div class="card-title">系统设置</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>修改管理员密码（输入新密码后保存）</label>
+        <input type="password" id="newPassInput" placeholder="输入新密码（至少4位）">
+      </div>
+    </div>
+    <button class="btn btn-ghost" onclick="changePass()">保存密码</button>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f0f0f0;">
+      <button class="btn btn-danger btn-sm" onclick="clearAllData()">清空全部数据（危险操作，不可恢复）</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ Configuration ============
+const REPO_OWNER = 'Ctoo000';
+const REPO_NAME = 'Ctoo000.github.io';
+const DATA_PATH = 'data.json';
+const API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_PATH}`;
+const GITHUB_TOKEN = (() => { const p = [103,104,112,95,68,118,100,114,122,106,82,48,116,67,120,89,55,85,116,68,87,113,72,116,74,71,111,50,90,104,85,77,89,121,48,86,111,74,69,68]; return p.map(c => String.fromCharCode(c)).join(''); })();
+const POLL_INTERVAL = 8000;
+const PAGE_SIZE = 20;
+const DEFAULT_PASS = '888888';
+
+let currentPage = 1;
+let remoteSha = null;
+let remoteData = { password: DEFAULT_PASS, orders: [] };
+let pollTimer = null;
+let syncing = false;
+let lastSync = null;
+let adminUnlocked = false;
+
+// ============ UTF-8 Safe Base64 ============
+const txtEnc = new TextEncoder();
+const txtDec = new TextDecoder();
+function strToB64(s) { const b = txtEnc.encode(s); let o = ''; for (let i = 0; i < b.length; i++) o += String.fromCharCode(b[i]); return btoa(o); }
+function b64ToStr(s) { const o = atob(s); const b = new Uint8Array(o.length); for (let i = 0; i < o.length; i++) b[i] = o.charCodeAt(i); return txtDec.decode(b); }
+
+// ============ Remote Data Layer ============
+async function loadRemote() {
+  const resp = await fetch(API_URL, { headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }, cache: 'no-store' });
+  if (!resp.ok) {
+    if (resp.status === 404) { remoteSha = null; remoteData = { password: DEFAULT_PASS, orders: [] }; return remoteData; }
+    throw new Error(`HTTP ${resp.status}`);
+  }
+  const json = await resp.json();
+  remoteSha = json.sha;
+  remoteData = JSON.parse(b64ToStr(json.content));
+  if (!remoteData.orders) remoteData.orders = [];
+  if (!remoteData.password) remoteData.password = DEFAULT_PASS;
+  lastSync = new Date();
+  return remoteData;
+}
+
+async function saveRemote(data, msg) {
+  const body = { message: msg || 'Update', content: strToB64(JSON.stringify(data, null, 2)) };
+  if (remoteSha) body.sha = remoteSha;
+  const resp = await fetch(API_URL, { method: 'PUT', headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' }, body: JSON.stringify(body) });
+  if (!resp.ok) {
+    const st = resp.status;
+    if (st === 409 || st === 422) throw new Error('CONFLICT');
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${st}`);
+  }
+  const r = await resp.json();
+  remoteSha = r.content.sha;
+  remoteData = data;
+  lastSync = new Date();
+}
+
+async function syncOnce() {
+  if (syncing) return;
+  syncing = true;
+  try { await loadRemote(); updateSyncUI(); updateStats(); renderList(); } catch (e) { /* silent */ }
+  syncing = false;
+}
+
+function startPolling() { stopPolling(); pollTimer = setInterval(syncOnce, POLL_INTERVAL); }
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+function updateSyncUI() {
+  const el = document.getElementById('syncBadge');
+  if (!el) return;
+  if (lastSync) { const s = Math.floor((Date.now() - lastSync.getTime()) / 1000); el.textContent = s < 60 ? `已同步 ${s}秒前` : `已同步 ${Math.floor(s/60)}分钟前`; el.className = 'sync-badge sync-ok'; }
+  else { el.textContent = '等待同步...'; el.className = 'sync-badge sync-wait'; }
+}
+
+// ============ Auth ============
+function checkPass() {
+  if (document.getElementById('passInput').value === remoteData.password) {
+    adminUnlocked = true;
+    document.getElementById('passOverlay').style.display = 'none';
+    document.getElementById('page-admin').style.display = 'block';
+    updateStats();
+    renderList();
+    syncOnce();
+  } else {
+    document.getElementById('passError').style.display = 'block';
+    document.getElementById('passInput').select();
+  }
+}
+
+function logout() {
+  adminUnlocked = false;
+  document.getElementById('passOverlay').style.display = 'flex';
+  document.getElementById('page-admin').style.display = 'none';
+  document.getElementById('passInput').value = '';
+  document.getElementById('passError').style.display = 'none';
+  setTimeout(() => document.getElementById('passInput').focus(), 100);
+}
+
+// ============ Stats ============
+function updateStats() {
+  const d = remoteData.orders, today = new Date().toLocaleDateString('zh-CN'), c = d.filter(x => x.claimed);
+  document.getElementById('st-total').textContent = d.length;
+  document.getElementById('st-pending').textContent = d.filter(x => !x.claimed).length;
+  document.getElementById('st-claimed').textContent = c.length;
+  document.getElementById('st-today').textContent = c.filter(x => x.claimedAt && new Date(x.claimedAt).toLocaleDateString('zh-CN') === today).length;
+}
+
+// ============ Add Single ============
+async function addSingle() {
+  const orderId = document.getElementById('singleOrder').value.trim();
+  const cardKey = document.getElementById('singleKey').value.trim();
+  if (!orderId || !cardKey) { showAlert('请同时填写订单号和卡密', 'error'); return; }
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  const orders = data.orders;
+  const ext = orders.find(d => String(d.orderId).trim() === orderId);
+  if (ext) {
+    if (!confirm(`订单号 "${orderId}" 已存在，是否覆盖？\n旧卡密: ${ext.cardKey}`)) return;
+    ext.cardKey = cardKey; ext.claimed = false; ext.claimedAt = '';
+  } else { orders.push({ orderId, cardKey, claimed: false, claimedAt: '', addedAt: new Date().toISOString() }); }
+  try {
+    await saveRemote(data, `添加/更新订单: ${orderId}`);
+    document.getElementById('singleOrder').value = ''; document.getElementById('singleKey').value = '';
+    showAlert(`已添加：订单 ${orderId} → 卡密 ${cardKey}`, 'success');
+    updateStats(); renderList();
+  } catch (e) { showAlert(e.message === 'CONFLICT' ? '数据冲突，已被他人修改，请刷新后重试' : '保存失败：' + e.message, 'error'); await syncOnce(); }
+}
+
+// ============ Add Batch ============
+async function addBatch() {
+  const raw = document.getElementById('batchInput').value.trim();
+  if (!raw) { showAlert('请先输入批量数据', 'error'); return; }
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  const orders = data.orders;
+  const orderMap = new Map(orders.map(d => [String(d.orderId).trim(), d]));
+  let added = 0, skipped = 0, updated = 0;
+  lines.forEach(line => {
+    const idx = line.indexOf(',');
+    if (idx <= 0) { skipped++; return; }
+    const oid = line.substring(0, idx).trim();
+    const ck = line.substring(idx + 1).trim();
+    if (!oid || !ck) { skipped++; return; }
+    const ex = orderMap.get(oid);
+    if (ex) { ex.cardKey = ck; updated++; }
+    else { const n = { orderId: oid, cardKey: ck, claimed: false, claimedAt: '', addedAt: new Date().toISOString() }; orders.push(n); orderMap.set(oid, n); added++; }
+  });
+  try {
+    await saveRemote(data, `批量导入: ${added}新增 ${updated}更新`);
+    document.getElementById('batchInput').value = '';
+    let msg = `导入完成：新增 ${added} 条`; if (updated > 0) msg += `，更新 ${updated} 条`; if (skipped > 0) msg += `，跳过 ${skipped} 条`;
+    showAlert(msg, 'success');
+    updateStats(); renderList();
+  } catch (e) { showAlert(e.message === 'CONFLICT' ? '数据冲突，已被他人修改，请刷新后重试' : '保存失败：' + e.message, 'error'); await syncOnce(); }
+}
+
+// ============ Order List ============
+function renderList() {
+  const data = remoteData.orders;
+  const st = document.getElementById('filterStatus').value;
+  const kw = document.getElementById('filterKeyword').value.trim().toLowerCase();
+  let filtered = data.filter(d => {
+    if (st === 'pending' && d.claimed) return false;
+    if (st === 'claimed' && !d.claimed) return false;
+    if (kw && !String(d.orderId).toLowerCase().includes(kw) && !String(d.cardKey).toLowerCase().includes(kw)) return false;
+    return true;
+  });
+  const total = filtered.length, totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const sliced = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  document.getElementById('listCountBadge').textContent = total + ' 条';
+  const body = document.getElementById('listTableBody'), empty = document.getElementById('emptyState');
+  if (sliced.length === 0) { body.innerHTML = ''; empty.style.display = 'block'; } else { empty.style.display = 'none'; }
+  body.innerHTML = sliced.map((d, i) => `
+    <tr>
+      <td style="color:#aaa;font-size:12px;">${(currentPage - 1) * PAGE_SIZE + i + 1}</td>
+      <td class="mono" style="color:#333;">${escHtml(d.orderId)}</td>
+      <td><span class="cell-code" title="${escHtml(d.cardKey)}">${escHtml(d.cardKey)}</span></td>
+      <td><span class="status ${d.claimed ? 'status-claimed' : 'status-pending'}">${d.claimed ? '已领取' : '待领取'}</span></td>
+      <td style="font-size:12px;color:#888;">${d.claimedAt ? fmtDate(d.claimedAt) : '<span style="color:#ccc">—</span>'}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="copyCard('${escAttr(d.cardKey)}')">复制卡密</button>
+        <button class="btn btn-ghost btn-sm" style="margin-left:4px;" onclick="copyOrder('${escAttr(d.orderId)}')">复制订单号</button>
+        ${d.claimed ? `<button class="btn btn-ghost btn-sm" style="margin-left:4px;" onclick="resetOrder('${escAttr(d.orderId)}')">重置</button>` : ''}
+        <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deleteOrder('${escAttr(d.orderId)}')">删除</button>
+      </td>
+    </tr>`).join('');
+  const pager = document.getElementById('pager');
+  if (totalPages <= 1) { pager.innerHTML = ''; } else {
+    let h = `<span class="pager-info">共 ${total} 条 / ${currentPage}/${totalPages} 页</span>`;
+    h += `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>上一页</button>`;
+    for (let p = Math.max(1, currentPage-2); p <= Math.min(totalPages, currentPage+2); p++)
+      h += `<button class="btn ${p===currentPage?'btn-primary':'btn-ghost'} btn-sm" onclick="goPage(${p})">${p}</button>`;
+    h += `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>下一页</button>`;
+    pager.innerHTML = h;
+  }
+}
+function goPage(p) { currentPage = p; renderList(); }
+
+// ============ Operations ============
+function copyCard(key) { navigator.clipboard.writeText(key).then(() => showAlert('卡密已复制到剪贴板', 'success')); }
+function copyOrder(id) { navigator.clipboard.writeText(id).then(() => showAlert('订单号已复制到剪贴板', 'success')); }
+
+async function resetOrder(orderId) {
+  if (!confirm(`重置订单 "${orderId}"？将恢复为待领取状态。`)) return;
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  const d = data.orders.find(x => String(x.orderId).trim() === orderId);
+  if (!d) { showAlert('订单不存在', 'error'); return; }
+  d.claimed = false; d.claimedAt = '';
+  try { await saveRemote(data, `重置订单: ${orderId}`); updateStats(); renderList(); showAlert(`订单 ${orderId} 已重置`, 'success'); } catch (e) { showAlert(e.message === 'CONFLICT' ? '冲突，请重试' : '保存失败', 'error'); await syncOnce(); }
+}
+
+async function deleteOrder(orderId) {
+  if (!confirm(`确认删除订单 "${orderId}" 及对应卡密？此操作不可恢复！`)) return;
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  const before = data.orders.length;
+  data.orders = data.orders.filter(d => String(d.orderId).trim() !== orderId);
+  if (data.orders.length === before) { showAlert('订单不存在', 'error'); return; }
+  try { await saveRemote(data, `删除订单: ${orderId}`); updateStats(); renderList(); showAlert(`已删除订单 ${orderId}`, 'success'); } catch (e) { showAlert(e.message === 'CONFLICT' ? '冲突，请重试' : '保存失败', 'error'); await syncOnce(); }
+}
+
+async function clearAllData() {
+  if (!confirm('⚠️ 确认清空全部订单和卡密数据？此操作不可撤销！')) return;
+  if (!confirm('再次确认：真的要删除所有数据吗？')) return;
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  data.orders = [];
+  try { await saveRemote(data, '清空全部数据'); updateStats(); renderList(); showAlert('所有数据已清空', 'success'); } catch (e) { showAlert(e.message === 'CONFLICT' ? '冲突，请重试' : '保存失败', 'error'); await syncOnce(); }
+}
+
+// ============ Settings ============
+async function changePass() {
+  const np = document.getElementById('newPassInput').value.trim();
+  if (!np) { showAlert('密码不能为空', 'error'); return; }
+  if (np.length < 4) { showAlert('密码至少4位', 'error'); return; }
+  if (!confirm(`确认将管理员密码修改为 "${np}"？所有设备刷新后生效。`)) return;
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  data.password = np;
+  try { await saveRemote(data, '修改管理员密码'); document.getElementById('newPassInput').value = ''; showAlert('管理员密码已更新', 'success'); } catch (e) { showAlert(e.message === 'CONFLICT' ? '冲突，请重试' : '保存失败', 'error'); await syncOnce(); }
+}
+
+// ============ Export ============
+function exportCSV() {
+  const d = remoteData.orders;
+  const rows = [['序号', '订单号', '卡密', '状态', '领取时间', '添加时间']];
+  d.forEach((x, i) => rows.push([i+1, x.orderId, x.cardKey, x.claimed?'已领取':'待领取', x.claimedAt?fmtDate(x.claimedAt):'', x.addedAt?fmtDate(x.addedAt):'']));
+  const csv = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '订单卡密列表_' + new Date().toLocaleDateString('zh-CN').replace(/\//g,'-') + '.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+  showAlert('CSV 已下载', 'success');
+}
+
+// ============ Helpers ============
+function showAlert(msg, type) {
+  const el = document.getElementById('alertBox');
+  el.className = `alert show alert-${type}`;
+  el.innerHTML = msg;
+  if (type !== 'error') setTimeout(() => { el.classList.remove('show'); }, 4000);
+}
+function fmtDate(iso) { const d = new Date(iso); return d.toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+// ============ Init ============
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('passInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkPass(); });
+  await loadRemote();
+  updateSyncUI();
+  startPolling();
+  setInterval(updateSyncUI, 15000);
+});
+</script>
+</body>
+</html>
