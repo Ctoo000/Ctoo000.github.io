@@ -11,8 +11,8 @@
     {
       "orderId": "456",
       "cardKey": "hhy",
-      "claimed": false,
-      "claimedAt": "",
+      "claimed": true,
+      "claimedAt": "2026-05-28T08:21:59.951Z",
       "addedAt": "2026-05-28T08:19:16.520Z"
     },
     {
