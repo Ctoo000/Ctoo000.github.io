@@ -35,6 +35,27 @@
       "claimed": true,
       "claimedAt": "2026-05-28T08:26:43.341Z",
       "addedAt": "2026-05-28T08:25:16.485Z"
+    },
+    {
+      "orderId": "qwe",
+      "cardKey": "123",
+      "claimed": false,
+      "claimedAt": "",
+      "addedAt": "2026-05-28T08:28:05.159Z"
+    },
+    {
+      "orderId": "asd",
+      "cardKey": "567",
+      "claimed": false,
+      "claimedAt": "",
+      "addedAt": "2026-05-28T08:28:05.160Z"
+    },
+    {
+      "orderId": "zxc",
+      "cardKey": "789",
+      "claimed": false,
+      "claimedAt": "",
+      "addedAt": "2026-05-28T08:28:05.160Z"
     }
   ]
 }
