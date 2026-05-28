@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>卡密发货系统</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f5f7; color: #1a1a1a; min-height: 100vh; }
+
+  /* Nav */
+  .nav { background: #fff; border-bottom: 1px solid #e8e8e8; padding: 0 24px; display: flex; align-items: center; height: 56px; gap: 0; }
+  .nav-brand { font-size: 16px; font-weight: 500; color: #1a1a1a; margin-right: 32px; display: flex; align-items: center; gap: 8px; }
+  .nav-brand-icon { width: 28px; height: 28px; background: #4f46e5; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .nav-brand-icon svg { width: 16px; height: 16px; fill: #fff; }
+  .nav-tab { padding: 0 16px; height: 56px; display: flex; align-items: center; font-size: 14px; cursor: pointer; color: #666; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .nav-tab:hover { color: #1a1a1a; }
+  .nav-tab.active { color: #4f46e5; border-bottom-color: #4f46e5; font-weight: 500; }
+
+  /* Layout */
+  .page { display: none; max-width: 900px; margin: 0 auto; padding: 28px 16px; }
+  .page.active { display: block; }
+
+  /* Card */
+  .card { background: #fff; border-radius: 10px; border: 1px solid #e8e8e8; padding: 24px; margin-bottom: 20px; }
+  .card-title { font-size: 15px; font-weight: 500; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card-title .badge { font-size: 11px; font-weight: 400; padding: 2px 8px; border-radius: 10px; }
+  .badge-blue { background: #eff6ff; color: #1d4ed8; }
+  .badge-green { background: #f0fdf4; color: #15803d; }
+  .badge-orange { background: #fff7ed; color: #c2410c; }
+  .badge-gray { background: #f3f4f6; color: #6b7280; }
+
+  /* Stats row */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border-radius: 10px; border: 1px solid #e8e8e8; padding: 16px; }
+  .stat-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 500; }
+  .stat-value.blue { color: #4f46e5; }
+  .stat-value.green { color: #16a34a; }
+  .stat-value.orange { color: #d97706; }
+  .stat-value.gray { color: #6b7280; }
+
+  /* Form */
+  .form-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .form-group label { font-size: 13px; color: #444; font-weight: 500; }
+  input, textarea, select {
+    border: 1px solid #ddd; border-radius: 8px; padding: 9px 12px; font-size: 14px;
+    outline: none; transition: border-color 0.15s; font-family: inherit; background: #fff; color: #1a1a1a; width: 100%;
+  }
+  input:focus, textarea:focus, select:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.08); }
+  textarea { resize: vertical; min-height: 100px; }
+
+  /* Buttons */
+  .btn { padding: 9px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; border: 1px solid transparent; font-family: inherit; font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+  .btn-primary:hover { background: #4338ca; }
+  .btn-success { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .btn-success:hover { background: #15803d; }
+  .btn-danger { background: #fff; color: #dc2626; border-color: #fca5a5; }
+  .btn-danger:hover { background: #fef2f2; }
+  .btn-ghost { background: #fff; color: #444; border-color: #e8e8e8; }
+  .btn-ghost:hover { background: #f9fafb; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+  .btn-copy { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 500; transition: all 0.15s; }
+  .btn-copy:hover { background: #dbeafe; }
+  .btn-copy.copied { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; font-weight: 500; font-size: 12px; color: #888; border-bottom: 1px solid #f0f0f0; background: #fafafa; }
+  td { padding: 11px 12px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+  .key-cell { font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; letter-spacing: 0.5px; color: #1a1a1a; background: #f8f8fa; padding: 4px 8px; border-radius: 4px; border: 1px solid #eee; display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Status badges */
+  .status { font-size: 11px; padding: 3px 9px; border-radius: 10px; font-weight: 500; display: inline-block; }
+  .status-unused { background: #f0fdf4; color: #16a34a; }
+  .status-used { background: #eff6ff; color: #2563eb; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 48px 24px; color: #aaa; }
+  .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.3; }
+  .empty-state p { font-size: 14px; }
+
+  /* Alert */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none; }
+  .alert.show { display: flex; align-items: center; gap: 8px; }
+  .alert-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+  .alert-error { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+  .alert-info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+  /* User page - hero card */
+  .hero-card { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border-radius: 14px; padding: 36px 32px; margin-bottom: 20px; color: #fff; }
+  .hero-title { font-size: 22px; font-weight: 500; margin-bottom: 8px; }
+  .hero-sub { font-size: 14px; opacity: 0.8; }
+
+  /* Result card */
+  .result-card { background: #fff; border-radius: 10px; border: 2px solid #16a34a; padding: 24px; margin-top: 20px; display: none; }
+  .result-card.show { display: block; }
+  .result-key-display { font-family: 'Consolas', 'Courier New', monospace; font-size: 20px; font-weight: 500; letter-spacing: 1.5px; color: #1a1a1a; background: #f8f9ff; border: 1px solid #e0e0e8; border-radius: 8px; padding: 16px 20px; word-break: break-all; margin: 16px 0; }
+  .result-actions { display: flex; gap: 10px; }
+
+  /* Separator */
+  .sep { height: 1px; background: #f0f0f0; margin: 20px 0; }
+  .section-subtitle { font-size: 13px; color: #888; margin-bottom: 16px; }
+
+  /* Admin pass prompt */
+  .pass-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 999; }
+  .pass-overlay.hidden { display: none; }
+  .pass-box { background: #fff; border-radius: 12px; padding: 32px; width: 340px; }
+  .pass-box h2 { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
+  .pass-box p { font-size: 13px; color: #888; margin-bottom: 20px; }
+  .pass-box-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+  /* Pagination */
+  .pager { display: flex; align-items: center; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+  .pager-info { font-size: 13px; color: #888; margin-right: 8px; }
+
+  /* Tag filter */
+  .filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .filter-row label { font-size: 13px; color: #888; white-space: nowrap; }
+
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .hero-card { padding: 24px 20px; }
+    .form-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Admin Password Overlay -->
+<div class="pass-overlay hidden" id="passOverlay">
+  <div class="pass-box">
+    <h2>进入管理后台</h2>
+    <p>请输入管理员密码以继续</p>
+    <input type="password" id="passInput" placeholder="输入密码" autofocus>
+    <div class="pass-box-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="checkPass()">确认</button>
+      <button class="btn btn-ghost" onclick="cancelAdmin()">取消</button>
+    </div>
+    <div id="passError" style="color:#dc2626;font-size:12px;margin-top:8px;display:none">密码错误，请重试</div>
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <div class="nav-brand">
+    <div class="nav-brand-icon">
+      <svg viewBox="0 0 24 24"><path d="M15.5 2H8.5C6 2 4 4 4 6.5v11C4 20 6 22 8.5 22h7c2.5 0 4.5-2 4.5-4.5v-11C20 4 18 2 15.5 2zm-3 16.5c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5zm3.5-6H8v-1.5c0-.3.2-.5.5-.5h7c.3 0 .5.2.5.5V12.5zm0-4H8V7c0-.3.2-.5.5-.5h7c.3 0 .5.2.5.5v1.5z"/></svg>
+    </div>
+    卡密发货系统
+  </div>
+  <div class="nav-tab active" id="tab-user" onclick="switchTab('user')">领取卡密</div>
+  <div class="nav-tab" id="tab-admin" onclick="requestAdmin()">管理后台</div>
+</div>
+
+<!-- ============ USER PAGE ============ -->
+<div class="page active" id="page-user">
+  <div class="hero-card">
+    <div class="hero-title">输入订单号，立即获取卡密</div>
+    <div class="hero-sub">请确保您已完成支付，凭订单号可领取对应的激活码或卡密</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">领取卡密</div>
+    <div id="alertUser" class="alert"></div>
+    <div class="form-group">
+      <label>订单号</label>
+      <input type="text" id="orderInput" placeholder="请输入您的订单号" style="font-size:15px;padding:11px 14px;" onkeydown="if(event.key==='Enter')claimKey()">
+    </div>
+    <div style="margin-top:14px;">
+      <button class="btn btn-primary" onclick="claimKey()" style="padding:10px 28px;font-size:15px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+        获取卡密
+      </button>
+    </div>
+
+    <!-- Result -->
+    <div class="result-card" id="resultCard">
+      <div style="display:flex;align-items:center;gap:8px;color:#16a34a;font-weight:500;font-size:15px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#16a34a"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5l-4-4 1.41-1.41L10 13.67l6.59-6.59L18 8.5l-8 8z"/></svg>
+        领取成功！以下是您的卡密
+      </div>
+      <div class="result-key-display" id="resultKeyText"></div>
+      <div class="result-actions">
+        <button class="btn-copy" id="copyBtn" onclick="copyKey()">复制卡密</button>
+        <button class="btn btn-ghost" onclick="resetUserForm()">重新领取</button>
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:#888;">
+        订单号：<span id="resultOrder" style="font-family:monospace;"></span>
+        &nbsp;&nbsp;|&nbsp;&nbsp;
+        领取时间：<span id="resultTime"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="card">
+    <div class="card-title">使用说明</div>
+    <div style="font-size:13px;color:#555;line-height:2;">
+      <p>1. 在上方输入框填写您购买时的<strong>订单号</strong>（平台自动生成，见支付凭证）</p>
+      <p>2. 点击「获取卡密」按钮，系统将自动分配您的专属卡密</p>
+      <p>3. 点击「复制卡密」将卡密复制到剪贴板，粘贴到对应激活窗口即可</p>
+      <p>4. 每个订单号只能领取一次，如有问题请联系客服</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN PAGE ============ -->
+<div class="page" id="page-admin">
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card">
+      <div class="stat-label">卡密总数</div>
+      <div class="stat-value blue" id="st-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">未使用</div>
+      <div class="stat-value green" id="st-unused">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">已发货</div>
+      <div class="stat-value orange" id="st-used">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">今日发出</div>
+      <div class="stat-value gray" id="st-today">0</div>
+    </div>
+  </div>
+
+  <!-- Add keys -->
+  <div class="card">
+    <div class="card-title">
+      添加卡密
+      <span class="badge badge-blue">批量支持</span>
+    </div>
+    <div id="alertAdmin" class="alert"></div>
+    <div class="section-subtitle">每行一个卡密，支持批量粘贴</div>
+    <textarea id="keyInput" placeholder="在此粘贴卡密，每行一个，例如：&#10;XXXX-XXXX-XXXX-AAAA&#10;XXXX-XXXX-XXXX-BBBB&#10;XXXX-XXXX-XXXX-CCCC"></textarea>
+    <div style="display:flex;gap:10px;margin-top:12px;align-items:center;">
+      <button class="btn btn-primary" onclick="addKeys()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        添加卡密
+      </button>
+      <button class="btn btn-ghost" onclick="document.getElementById('keyInput').value=''">清空</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-danger btn-sm" onclick="clearAllKeys()">清空全部卡密</button>
+    </div>
+  </div>
+
+  <!-- Key list -->
+  <div class="card">
+    <div class="card-title">
+      卡密列表
+      <span class="badge badge-gray" id="listCountBadge">0 条</span>
+    </div>
+    <div class="filter-row">
+      <label>筛选状态：</label>
+      <select id="filterStatus" onchange="renderKeyList()" style="width:auto;min-width:120px;">
+        <option value="all">全部</option>
+        <option value="unused">未使用</option>
+        <option value="used">已发货</option>
+      </select>
+      <input type="text" id="filterKeyword" placeholder="搜索卡密/订单号" style="max-width:220px;" oninput="renderKeyList()">
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">导出 CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>卡密</th>
+            <th>状态</th>
+            <th>订单号</th>
+            <th>发货时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="keyTableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14.5l-4-4 1.41-1.41L12 14.67l6.59-6.59L20 9.5l-8 8z" opacity=".3"/></svg>
+        <p>暂无卡密数据</p>
+      </div>
+    </div>
+    <div class="pager" id="pager"></div>
+  </div>
+
+  <!-- Delivery records -->
+  <div class="card">
+    <div class="card-title">发货记录
+      <span class="badge badge-orange" id="recordBadge">0 条</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>订单号</th>
+            <th>卡密</th>
+            <th>发货时间</th>
+          </tr>
+        </thead>
+        <tbody id="recordTableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyRecord" style="display:none;">
+        <p>暂无发货记录</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="card">
+    <div class="card-title">系统设置</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>管理员密码（修改后刷新生效）</label>
+        <input type="password" id="newPassInput" placeholder="输入新密码">
+      </div>
+    </div>
+    <button class="btn btn-ghost" onclick="changePass()">保存密码</button>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f0;">
+      <button class="btn btn-danger btn-sm" onclick="clearAllData()">清空全部数据（危险操作）</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PASS_KEY = 'cdms_admin_pass';
+const KEYS_KEY = 'cdms_keys';
+const PAGE_SIZE = 20;
+let currentPage = 1;
+let adminUnlocked = false;
+
+// ---- Data helpers ----
+function loadKeys() {
+  try { return JSON.parse(localStorage.getItem(KEYS_KEY) || '[]'); } catch { return []; }
+}
+function saveKeys(keys) {
+  localStorage.setItem(KEYS_KEY, JSON.stringify(keys));
+}
+function getPass() {
+  return localStorage.getItem(PASS_KEY) || '888888';
+}
+
+// ---- Tab switching ----
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'admin') { updateStats(); renderKeyList(); renderRecords(); }
+}
+
+function requestAdmin() {
+  if (adminUnlocked) { switchTab('admin'); return; }
+  document.getElementById('passOverlay').classList.remove('hidden');
+  document.getElementById('passInput').value = '';
+  document.getElementById('passError').style.display = 'none';
+  setTimeout(() => document.getElementById('passInput').focus(), 100);
+}
+document.getElementById('passInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkPass(); });
+
+function checkPass() {
+  const val = document.getElementById('passInput').value;
+  if (val === getPass()) {
+    adminUnlocked = true;
+    document.getElementById('passOverlay').classList.add('hidden');
+    switchTab('admin');
+  } else {
+    document.getElementById('passError').style.display = 'block';
+    document.getElementById('passInput').select();
+  }
+}
+function cancelAdmin() {
+  document.getElementById('passOverlay').classList.add('hidden');
+}
+
+// ---- Stats ----
+function updateStats() {
+  const keys = loadKeys();
+  const today = new Date().toLocaleDateString('zh-CN');
+  const used = keys.filter(k => k.used);
+  const todayUsed = used.filter(k => k.usedAt && new Date(k.usedAt).toLocaleDateString('zh-CN') === today);
+  document.getElementById('st-total').textContent = keys.length;
+  document.getElementById('st-unused').textContent = keys.filter(k => !k.used).length;
+  document.getElementById('st-used').textContent = used.length;
+  document.getElementById('st-today').textContent = todayUsed.length;
+}
+
+// ---- Add keys ----
+function addKeys() {
+  const raw = document.getElementById('keyInput').value.trim();
+  if (!raw) { showAlert('alertAdmin', 'error', '请先输入卡密内容'); return; }
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length === 0) { showAlert('alertAdmin', 'error', '未检测到有效卡密'); return; }
+  const keys = loadKeys();
+  const existing = new Set(keys.map(k => k.key));
+  let added = 0, skipped = 0;
+  lines.forEach(line => {
+    if (existing.has(line)) { skipped++; } else {
+      keys.push({ key: line, used: false, orderId: '', usedAt: '', addedAt: new Date().toISOString() });
+      existing.add(line);
+      added++;
+    }
+  });
+  saveKeys(keys);
+  document.getElementById('keyInput').value = '';
+  showAlert('alertAdmin', 'success', `成功添加 ${added} 个卡密${skipped > 0 ? `，跳过 ${skipped} 个重复` : ''}`);
+  updateStats(); renderKeyList();
+}
+
+// ---- Render key list ----
+function renderKeyList() {
+  const keys = loadKeys();
+  const status = document.getElementById('filterStatus').value;
+  const kw = document.getElementById('filterKeyword').value.trim().toLowerCase();
+  let filtered = keys.filter((k, i) => {
+    if (status === 'unused' && k.used) return false;
+    if (status === 'used' && !k.used) return false;
+    if (kw && !k.key.toLowerCase().includes(kw) && !k.orderId.toLowerCase().includes(kw)) return false;
+    return true;
+  });
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const sliced = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  document.getElementById('listCountBadge').textContent = total + ' 条';
+  const body = document.getElementById('keyTableBody');
+  const empty = document.getElementById('emptyState');
+  if (sliced.length === 0) { body.innerHTML = ''; empty.style.display = 'block'; } else { empty.style.display = 'none'; }
+
+  body.innerHTML = sliced.map((k, i) => `
+    <tr>
+      <td style="color:#aaa;font-size:12px;">${(currentPage - 1) * PAGE_SIZE + i + 1}</td>
+      <td><span class="key-cell" title="${escHtml(k.key)}">${escHtml(k.key)}</span></td>
+      <td><span class="status ${k.used ? 'status-used' : 'status-unused'}">${k.used ? '已发货' : '未使用'}</span></td>
+      <td style="font-family:monospace;font-size:13px;color:#555;">${k.orderId ? escHtml(k.orderId) : '<span style="color:#ccc">—</span>'}</td>
+      <td style="font-size:12px;color:#888;">${k.usedAt ? fmtDate(k.usedAt) : '<span style="color:#ccc">—</span>'}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="adminCopyKey('${escHtml(k.key)}')">复制</button>
+        ${k.used ? `<button class="btn btn-ghost btn-sm" style="margin-left:4px;" onclick="revokeKey('${escHtml(k.key)}')">撤回</button>` : ''}
+        <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deleteKey('${escHtml(k.key)}')">删除</button>
+      </td>
+    </tr>
+  `).join('');
+
+  renderPager(total, totalPages);
+}
+
+function renderPager(total, totalPages) {
+  const pager = document.getElementById('pager');
+  if (totalPages <= 1) { pager.innerHTML = ''; return; }
+  let html = `<span class="pager-info">共 ${total} 条 / 第 ${currentPage}/${totalPages} 页</span>`;
+  html += `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>上一页</button>`;
+  for (let p = Math.max(1, currentPage-2); p <= Math.min(totalPages, currentPage+2); p++) {
+    html += `<button class="btn ${p===currentPage?'btn-primary':'btn-ghost'} btn-sm" onclick="goPage(${p})">${p}</button>`;
+  }
+  html += `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>下一页</button>`;
+  pager.innerHTML = html;
+}
+function goPage(p) { currentPage = p; renderKeyList(); }
+
+// ---- Render records ----
+function renderRecords() {
+  const keys = loadKeys();
+  const used = keys.filter(k => k.used).sort((a, b) => new Date(b.usedAt) - new Date(a.usedAt));
+  document.getElementById('recordBadge').textContent = used.length + ' 条';
+  const body = document.getElementById('recordTableBody');
+  const empty = document.getElementById('emptyRecord');
+  if (used.length === 0) { body.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  body.innerHTML = used.map(k => `
+    <tr>
+      <td style="font-family:monospace;font-size:13px;">${escHtml(k.orderId)}</td>
+      <td><span class="key-cell">${escHtml(k.key)}</span></td>
+      <td style="font-size:12px;color:#888;">${fmtDate(k.usedAt)}</td>
+    </tr>
+  `).join('');
+}
+
+// ---- Key operations ----
+function deleteKey(key) {
+  if (!confirm('确认删除此卡密？')) return;
+  const keys = loadKeys().filter(k => k.key !== key);
+  saveKeys(keys);
+  updateStats(); renderKeyList(); renderRecords();
+}
+function revokeKey(key) {
+  if (!confirm('确认撤回此卡密（将重置为未使用）？')) return;
+  const keys = loadKeys();
+  const k = keys.find(k => k.key === key);
+  if (k) { k.used = false; k.orderId = ''; k.usedAt = ''; }
+  saveKeys(keys);
+  updateStats(); renderKeyList(); renderRecords();
+}
+function adminCopyKey(key) {
+  navigator.clipboard.writeText(key).then(() => {
+    showAlert('alertAdmin', 'success', '卡密已复制到剪贴板');
+  });
+}
+function clearAllKeys() {
+  if (!confirm('确认清空全部卡密？此操作不可撤销！')) return;
+  saveKeys([]);
+  updateStats(); renderKeyList(); renderRecords();
+  showAlert('alertAdmin', 'success', '已清空所有卡密');
+}
+
+// ---- User: claim key ----
+function claimKey() {
+  const orderId = document.getElementById('orderInput').value.trim();
+  if (!orderId) { showAlert('alertUser', 'error', '请输入订单号'); return; }
+
+  const keys = loadKeys();
+
+  // Already claimed by this order?
+  const existing = keys.find(k => k.used && k.orderId === orderId);
+  if (existing) {
+    showResultCard(existing.key, orderId, existing.usedAt);
+    showAlert('alertUser', 'info', '该订单号已领取过卡密，为您重新显示');
+    return;
+  }
+
+  // Find next unused
+  const unused = keys.find(k => !k.used);
+  if (!unused) {
+    showAlert('alertUser', 'error', '暂无可用卡密，请联系卖家补充');
+    return;
+  }
+
+  unused.used = true;
+  unused.orderId = orderId;
+  unused.usedAt = new Date().toISOString();
+  saveKeys(keys);
+
+  showResultCard(unused.key, orderId, unused.usedAt);
+  hideAlert('alertUser');
+}
+
+function showResultCard(key, orderId, usedAt) {
+  document.getElementById('resultKeyText').textContent = key;
+  document.getElementById('resultOrder').textContent = orderId;
+  document.getElementById('resultTime').textContent = fmtDate(usedAt);
+  document.getElementById('resultCard').classList.add('show');
+  document.getElementById('copyBtn').textContent = '复制卡密';
+  document.getElementById('copyBtn').classList.remove('copied');
+}
+
+function copyKey() {
+  const key = document.getElementById('resultKeyText').textContent;
+  navigator.clipboard.writeText(key).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '已复制！';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制卡密'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function resetUserForm() {
+  document.getElementById('orderInput').value = '';
+  document.getElementById('resultCard').classList.remove('show');
+  hideAlert('alertUser');
+  document.getElementById('orderInput').focus();
+}
+
+// ---- Settings ----
+function changePass() {
+  const np = document.getElementById('newPassInput').value.trim();
+  if (!np) { showAlert('alertAdmin', 'error', '密码不能为空'); return; }
+  if (np.length < 4) { showAlert('alertAdmin', 'error', '密码至少4位'); return; }
+  localStorage.setItem(PASS_KEY, np);
+  document.getElementById('newPassInput').value = '';
+  showAlert('alertAdmin', 'success', '密码已更新，下次进入后台需使用新密码');
+}
+function clearAllData() {
+  if (!confirm('确认清空全部数据？包括卡密、密码等所有设置，此操作不可撤销！')) return;
+  localStorage.removeItem(KEYS_KEY);
+  localStorage.removeItem(PASS_KEY);
+  showAlert('alertAdmin', 'success', '已清空所有数据');
+  updateStats(); renderKeyList(); renderRecords();
+}
+
+// ---- Export CSV ----
+function exportCSV() {
+  const keys = loadKeys();
+  const rows = [['序号', '卡密', '状态', '订单号', '发货时间', '添加时间']];
+  keys.forEach((k, i) => {
+    rows.push([i+1, k.key, k.used ? '已发货' : '未使用', k.orderId || '', k.usedAt ? fmtDate(k.usedAt) : '', k.addedAt ? fmtDate(k.addedAt) : '']);
+  });
+  const csv = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '卡密列表_' + new Date().toLocaleDateString('zh-CN').replace(/\//g,'-') + '.csv';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ---- Helpers ----
+function showAlert(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = `alert show alert-${type}`;
+  el.textContent = msg;
+  if (type !== 'error') setTimeout(() => { el.classList.remove('show'); }, 4000);
+}
+function hideAlert(id) {
+  document.getElementById(id).classList.remove('show');
+}
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ---- Init demo data (optional) ----
+function initDemo() {
+  const keys = loadKeys();
+  if (keys.length === 0) {
+    const demo = [
+      'DEMO-ABCD-1234-WXYZ', 'DEMO-EFGH-5678-MNOP', 'DEMO-IJKL-9012-QRST',
+      'DEMO-MNOP-3456-ABCD', 'DEMO-QRST-7890-EFGH'
+    ];
+    const now = new Date().toISOString();
+    const demoKeys = demo.map(k => ({ key: k, used: false, orderId: '', usedAt: '', addedAt: now }));
+    saveKeys(demoKeys);
+  }
+}
+initDemo();
+</script>
+</body>
+</html>
