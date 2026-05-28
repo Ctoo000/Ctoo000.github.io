@@ -2,13 +2,6 @@
   "password": "888888",
   "orders": [
     {
-      "orderId": "230618",
-      "cardKey": "hyx",
-      "claimed": true,
-      "claimedAt": "2026-05-28T08:24:09.598Z",
-      "addedAt": "2026-05-28T08:23:02.719Z"
-    },
-    {
       "orderId": "00618",
       "cardKey": "hyx今晚吃什么",
       "claimed": true,
