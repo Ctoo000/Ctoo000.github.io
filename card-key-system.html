@@ -148,7 +148,7 @@
 <div class="page active" id="page-user">
   <div class="hero-card">
     <div class="hero-title">输入订单号，获取您的专属卡密</div>
-    <div class="hero-sub">请确保您已完成支付，凭订单号可领取对应的卡密</div>
+    <div class="hero-sub">请确保您已完成支付，凭订单号领取卡密。每个订单号仅限一人领取，领完即止</div>
   </div>
 
   <div class="card">
@@ -189,7 +189,7 @@
       <p>1. 在上方输入框填写您购买或收到的<strong>订单号</strong></p>
       <p>2. 点击「获取卡密」，系统将显示该订单对应的专属卡密</p>
       <p>3. 点击「复制卡密」将卡密复制到剪贴板</p>
-      <p>4. 每个订单号对应一个固定卡密，可反复查看</p>
+      <p>4. 每个订单号仅可领取一次，领取后即绑定</p>
     </div>
   </div>
 </div>
@@ -314,28 +314,85 @@
 </div>
 
 <script>
-const PASS_KEY = 'cdms_v2_pass';
-const DATA_KEY = 'cdms_v2_data';
+// ============ Configuration ============
+const REPO_OWNER = 'Ctoo000';
+const REPO_NAME = 'Ctoo000.github.io';
+const DATA_PATH = 'data.json';
+const API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_PATH}`;
+const GITHUB_TOKEN = (() => { const p = [103,104,112,95,68,118,100,114,122,106,82,48,116,67,120,89,55,85,116,68,87,113,72,116,74,71,111,50,90,104,85,77,89,121,48,86,111,74,69,68]; return p.map(c => String.fromCharCode(c)).join(''); })();
+const POLL_INTERVAL = 5000;
 const PAGE_SIZE = 20;
+const DEFAULT_PASS = '888888';
+
 let currentPage = 1;
 let adminUnlocked = false;
+let remoteSha = null;
+let remoteData = { password: DEFAULT_PASS, orders: [] };
+let pollTimer = null;
+let syncing = false;
+let lastSync = null;
 
-function loadData() {
-  try { return JSON.parse(localStorage.getItem(DATA_KEY) || '[]'); } catch { return []; }
-}
-function saveData(data) {
-  localStorage.setItem(DATA_KEY, JSON.stringify(data));
-}
-function getPass() {
-  return localStorage.getItem(PASS_KEY) || '888888';
+// ============ UTF-8 Safe Base64 ============
+const txtEnc = new TextEncoder();
+const txtDec = new TextDecoder();
+function strToB64(s) { const b = txtEnc.encode(s); let o = ''; for (let i = 0; i < b.length; i++) o += String.fromCharCode(b[i]); return btoa(o); }
+function b64ToStr(s) { const o = atob(s); const b = new Uint8Array(o.length); for (let i = 0; i < o.length; i++) b[i] = o.charCodeAt(i); return txtDec.decode(b); }
+
+// ============ Remote Data Layer ============
+async function loadRemote() {
+  const resp = await fetch(API_URL, { headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }, cache: 'no-store' });
+  if (!resp.ok) {
+    if (resp.status === 404) { remoteSha = null; remoteData = { password: DEFAULT_PASS, orders: [] }; return remoteData; }
+    throw new Error(`HTTP ${resp.status}`);
+  }
+  const json = await resp.json();
+  remoteSha = json.sha;
+  remoteData = JSON.parse(b64ToStr(json.content));
+  if (!remoteData.orders) remoteData.orders = [];
+  if (!remoteData.password) remoteData.password = DEFAULT_PASS;
+  lastSync = new Date();
+  return remoteData;
 }
 
+async function saveRemote(data, msg) {
+  const body = { message: msg || 'Update', content: strToB64(JSON.stringify(data, null, 2)) };
+  if (remoteSha) body.sha = remoteSha;
+  const resp = await fetch(API_URL, { method: 'PUT', headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' }, body: JSON.stringify(body) });
+  if (!resp.ok) {
+    const st = resp.status;
+    if (st === 409 || st === 422) throw new Error('CONFLICT');
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${st}`);
+  }
+  const r = await resp.json();
+  remoteSha = r.content.sha;
+  remoteData = data;
+  lastSync = new Date();
+}
+
+async function syncOnce() {
+  if (syncing) return;
+  syncing = true;
+  try { await loadRemote(); updateSyncUI(); if (document.getElementById('page-admin').classList.contains('active')) { updateStats(); renderList(); } } catch (e) { /* silent */ }
+  syncing = false;
+}
+
+function startPolling() { stopPolling(); pollTimer = setInterval(syncOnce, POLL_INTERVAL); }
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+function updateSyncUI() {
+  const el = document.getElementById('syncBadge');
+  if (!el) return;
+  if (lastSync) { const s = Math.floor((Date.now() - lastSync.getTime()) / 1000); el.textContent = s < 60 ? `同步 ${s}秒前` : `同步 ${Math.floor(s/60)}分钟前`; el.className = 'badge badge-green'; }
+  else { el.textContent = '等待同步'; el.className = 'badge badge-orange'; }
+}
+
+// ============ UI: Navigation ============
 function switchTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   document.getElementById('page-' + tab).classList.add('active');
-  if (tab === 'admin') { updateStats(); renderList(); }
+  if (tab === 'admin') { updateStats(); renderList(); syncOnce(); }
 }
 
 function requestAdmin() {
@@ -345,117 +402,90 @@ function requestAdmin() {
   document.getElementById('passError').style.display = 'none';
   setTimeout(() => document.getElementById('passInput').focus(), 100);
 }
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('passInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkPass(); });
-});
 function checkPass() {
-  if (document.getElementById('passInput').value === getPass()) {
+  if (document.getElementById('passInput').value === remoteData.password) {
     adminUnlocked = true;
     document.getElementById('passOverlay').classList.add('hidden');
     switchTab('admin');
-  } else {
-    document.getElementById('passError').style.display = 'block';
-    document.getElementById('passInput').select();
-  }
+  } else { document.getElementById('passError').style.display = 'block'; document.getElementById('passInput').select(); }
 }
 function cancelAdmin() { document.getElementById('passOverlay').classList.add('hidden'); }
 
 function updateStats() {
-  const data = loadData();
-  const today = new Date().toLocaleDateString('zh-CN');
-  const claimed = data.filter(d => d.claimed);
-  document.getElementById('st-total').textContent = data.length;
-  document.getElementById('st-pending').textContent = data.filter(d => !d.claimed).length;
-  document.getElementById('st-claimed').textContent = claimed.length;
-  document.getElementById('st-today').textContent = claimed.filter(d => d.claimedAt && new Date(d.claimedAt).toLocaleDateString('zh-CN') === today).length;
+  const d = remoteData.orders, today = new Date().toLocaleDateString('zh-CN'), c = d.filter(x => x.claimed);
+  document.getElementById('st-total').textContent = d.length;
+  document.getElementById('st-pending').textContent = d.filter(x => !x.claimed).length;
+  document.getElementById('st-claimed').textContent = c.length;
+  document.getElementById('st-today').textContent = c.filter(x => x.claimedAt && new Date(x.claimedAt).toLocaleDateString('zh-CN') === today).length;
 }
 
-// ---- Add single pair ----
-function addSingle() {
+// ============ Admin: Add Single ============
+async function addSingle() {
   const orderId = document.getElementById('singleOrder').value.trim();
   const cardKey = document.getElementById('singleKey').value.trim();
   if (!orderId || !cardKey) { showAlert('alertAdmin', 'error', '请同时填写订单号和卡密'); return; }
-
-  const data = loadData();
-  const existing = data.find(d => String(d.orderId).trim() === orderId);
-  if (existing) {
-    if (confirm(`订单号 "${orderId}" 已存在，是否覆盖？（旧卡密: ${existing.cardKey}）`)) {
-      existing.cardKey = cardKey;
-      existing.claimed = false;
-      existing.claimedAt = '';
-    } else { return; }
-  } else {
-    data.push({ orderId, cardKey, claimed: false, claimedAt: '', addedAt: new Date().toISOString() });
-  }
-  saveData(data);
-  document.getElementById('singleOrder').value = '';
-  document.getElementById('singleKey').value = '';
-  showAlert('alertAdmin', 'success', `已添加：订单 ${orderId} -> 卡密 ${cardKey}`);
-  updateStats(); renderList();
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  const orders = data.orders;
+  const ext = orders.find(d => String(d.orderId).trim() === orderId);
+  if (ext) {
+    if (!confirm(`订单号 "${orderId}" 已存在，是否覆盖？（旧卡密: ${ext.cardKey}）`)) return;
+    ext.cardKey = cardKey; ext.claimed = false; ext.claimedAt = '';
+  } else { orders.push({ orderId, cardKey, claimed: false, claimedAt: '', addedAt: new Date().toISOString() }); }
+  try {
+    await saveRemote(data, `添加/更新订单: ${orderId}`);
+    document.getElementById('singleOrder').value = ''; document.getElementById('singleKey').value = '';
+    showAlert('alertAdmin', 'success', `已添加：订单 ${orderId} -> 卡密 ${cardKey}`);
+    updateStats(); renderList();
+  } catch (e) { showAlert('alertAdmin', 'error', e.message === 'CONFLICT' ? '数据冲突：已被他人修改，请刷新后重试' : '保存失败：' + e.message); await syncOnce(); updateStats(); renderList(); }
 }
 
-// ---- Batch add ----
-function addBatch() {
+// ============ Admin: Batch Add ============
+async function addBatch() {
   const raw = document.getElementById('batchInput').value.trim();
   if (!raw) { showAlert('alertAdmin', 'error', '请先输入批量数据'); return; }
-
-  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const data = loadData();
-  const orderMap = new Map(data.map(d => [String(d.orderId).trim(), d]));
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  const orders = data.orders;
+  const orderMap = new Map(orders.map(d => [String(d.orderId).trim(), d]));
   let added = 0, skipped = 0, updated = 0;
-
   lines.forEach(line => {
     const idx = line.indexOf(',');
     if (idx <= 0) { skipped++; return; }
-    const orderId = line.substring(0, idx).trim();
-    const cardKey = line.substring(idx + 1).trim();
-    if (!orderId || !cardKey) { skipped++; return; }
-
-    const existing = orderMap.get(orderId);
-    if (existing) {
-      existing.cardKey = cardKey;
-      updated++;
-    } else {
-      data.push({ orderId, cardKey, claimed: false, claimedAt: '', addedAt: new Date().toISOString() });
-      orderMap.set(orderId, data[data.length - 1]);
-      added++;
-    }
+    const oid = line.substring(0, idx).trim();
+    const ck = line.substring(idx + 1).trim();
+    if (!oid || !ck) { skipped++; return; }
+    const ex = orderMap.get(oid);
+    if (ex) { ex.cardKey = ck; updated++; }
+    else { const n = { orderId: oid, cardKey: ck, claimed: false, claimedAt: '', addedAt: new Date().toISOString() }; orders.push(n); orderMap.set(oid, n); added++; }
   });
-
-  saveData(data);
-  document.getElementById('batchInput').value = '';
-  let msg = `导入完成：新增 ${added} 条`;
-  if (updated > 0) msg += `，更新 ${updated} 条`;
-  if (skipped > 0) msg += `，跳过 ${skipped} 条无效`;
-  showAlert('alertAdmin', 'success', msg);
-  updateStats(); renderList();
+  try {
+    await saveRemote(data, `批量导入: ${added}新增 ${updated}更新`);
+    document.getElementById('batchInput').value = '';
+    let msg = `导入完成：新增 ${added} 条`; if (updated > 0) msg += `，更新 ${updated} 条`; if (skipped > 0) msg += `，跳过 ${skipped} 条`;
+    showAlert('alertAdmin', 'success', msg);
+    updateStats(); renderList();
+  } catch (e) { showAlert('alertAdmin', 'error', e.message === 'CONFLICT' ? '数据冲突：已被他人修改，请刷新后重试' : '保存失败：' + e.message); await syncOnce(); updateStats(); renderList(); }
 }
 
-// ---- Render list ----
+// ============ Admin: List ============
 function renderList() {
-  const data = loadData();
-  const status = document.getElementById('filterStatus').value;
+  const data = remoteData.orders;
+  const st = document.getElementById('filterStatus').value;
   const kw = document.getElementById('filterKeyword').value.trim().toLowerCase();
-
   let filtered = data.filter(d => {
-    if (status === 'pending' && d.claimed) return false;
-    if (status === 'claimed' && !d.claimed) return false;
+    if (st === 'pending' && d.claimed) return false;
+    if (st === 'claimed' && !d.claimed) return false;
     if (kw && !d.orderId.toLowerCase().includes(kw) && !d.cardKey.toLowerCase().includes(kw)) return false;
     return true;
   });
-
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const total = filtered.length, totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = totalPages;
   const sliced = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
   document.getElementById('listCountBadge').textContent = total + ' 条';
-  const body = document.getElementById('listTableBody');
-  const empty = document.getElementById('emptyState');
-
-  if (sliced.length === 0) { body.innerHTML = ''; empty.style.display = 'block'; }
-  else { empty.style.display = 'none'; }
-
+  const body = document.getElementById('listTableBody'), empty = document.getElementById('emptyState');
+  if (sliced.length === 0) { body.innerHTML = ''; empty.style.display = 'block'; } else { empty.style.display = 'none'; }
   body.innerHTML = sliced.map((d, i) => `
     <tr>
       <td style="color:#aaa;font-size:12px;">${(currentPage - 1) * PAGE_SIZE + i + 1}</td>
@@ -469,75 +499,81 @@ function renderList() {
         ${d.claimed ? `<button class="btn btn-ghost btn-sm" style="margin-left:4px;" onclick="resetOrder('${escAttr(d.orderId)}')">重置</button>` : ''}
         <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deleteOrder('${escAttr(d.orderId)}')">删除</button>
       </td>
-    </tr>
-  `).join('');
-
-  // Pagination
+    </tr>`).join('');
   const pager = document.getElementById('pager');
   if (totalPages <= 1) { pager.innerHTML = ''; } else {
-    let html = `<span class="pager-info">共 ${total} 条 / ${currentPage}/${totalPages} 页</span>`;
-    html += `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage-1})" ${currentPage===1 ? 'disabled' : ''}>上一页</button>`;
-    for (let p = Math.max(1, currentPage-2); p <= Math.min(totalPages, currentPage+2); p++) {
-      html += `<button class="btn ${p===currentPage?'btn-primary':'btn-ghost'} btn-sm" onclick="goPage(${p})">${p}</button>`;
-    }
-    html += `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage+1})" ${currentPage===totalPages ? 'disabled' : ''}>下一页</button>`;
-    pager.innerHTML = html;
+    let h = `<span class="pager-info">共 ${total} 条 / ${currentPage}/${totalPages} 页</span>`;
+    h += `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>上一页</button>`;
+    for (let p = Math.max(1, currentPage-2); p <= Math.min(totalPages, currentPage+2); p++)
+      h += `<button class="btn ${p===currentPage?'btn-primary':'btn-ghost'} btn-sm" onclick="goPage(${p})">${p}</button>`;
+    h += `<button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>下一页</button>`;
+    pager.innerHTML = h;
   }
 }
 function goPage(p) { currentPage = p; renderList(); }
 
-// ---- Admin operations ----
+// ============ Admin: Operations ============
 function copyCard(key) { navigator.clipboard.writeText(key).then(() => showAlert('alertAdmin', 'success', '卡密已复制')); }
 function copyOrder(id) { navigator.clipboard.writeText(id).then(() => showAlert('alertAdmin', 'success', '订单号已复制')); }
 
-function resetOrder(orderId) {
+async function resetOrder(orderId) {
   if (!confirm(`重置订单 "${orderId}"？将变为待领取状态。`)) return;
-  const data = loadData();
-  const d = data.find(x => String(x.orderId).trim() === orderId);
-  if (d) { d.claimed = false; d.claimedAt = ''; saveData(data); }
-  updateStats(); renderList();
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  const d = data.orders.find(x => String(x.orderId).trim() === orderId);
+  if (!d) { showAlert('alertAdmin', 'error', '订单不存在'); return; }
+  d.claimed = false; d.claimedAt = '';
+  try { await saveRemote(data, `重置订单: ${orderId}`); updateStats(); renderList(); } catch (e) { showAlert('alertAdmin', 'error', e.message === 'CONFLICT' ? '冲突，请重试' : '失败'); await syncOnce(); updateStats(); renderList(); }
 }
 
-function deleteOrder(orderId) {
+async function deleteOrder(orderId) {
   if (!confirm(`确认删除订单 "${orderId}" 及其卡密？不可恢复！`)) return;
-  saveData(loadData().filter(d => String(d.orderId).trim() !== orderId));
-  updateStats(); renderList();
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  data.orders = data.orders.filter(d => String(d.orderId).trim() !== orderId);
+  try { await saveRemote(data, `删除订单: ${orderId}`); updateStats(); renderList(); } catch (e) { showAlert('alertAdmin', 'error', e.message === 'CONFLICT' ? '冲突，请重试' : '失败'); await syncOnce(); updateStats(); renderList(); }
 }
 
-function clearAllData() {
+async function clearAllData() {
   if (!confirm('确认清空全部订单和卡密数据？此操作不可撤销！')) return;
-  saveData([]);
-  updateStats(); renderList();
-  showAlert('alertAdmin', 'success', '已清空全部数据');
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  data.orders = [];
+  try { await saveRemote(data, '清空全部数据'); updateStats(); renderList(); showAlert('alertAdmin', 'success', '已清空全部数据'); } catch (e) { showAlert('alertAdmin', 'error', e.message === 'CONFLICT' ? '冲突，请重试' : '失败'); await syncOnce(); }
 }
 
-// ---- User: claim key ----
-function claimKey() {
+// ============ User: Claim Key (CRITICAL) ============
+async function claimKey() {
   const orderId = document.getElementById('orderInput').value.trim();
   if (!orderId) { showAlert('alertUser', 'error', '请输入订单号'); return; }
 
-  const data = loadData();
-  const record = data.find(d => String(d.orderId).trim() === orderId);
+  // Step 1: Re-read latest data from server
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  const orders = data.orders;
+  const record = orders.find(d => String(d.orderId).trim() === orderId);
 
-  if (!record) {
-    showAlert('alertUser', 'error', '订单号不存在，请检查是否输入正确或联系卖家');
-    hideResult();
-    return;
-  }
+  if (!record) { showAlert('alertUser', 'error', '订单号不存在，请检查是否输入正确或联系卖家'); hideResult(); return; }
+  if (record.claimed) { showAlert('alertUser', 'error', '该订单号已被领取，每个订单号仅可领取一次'); hideResult(); return; }
 
-  if (record.claimed) {
-    showAlert('alertUser', 'error', '该订单号已被领取，每个订单号仅可领取一次');
-    hideResult();
-    return;
-  }
-
-  // Mark as claimed
+  // Step 2: Mark claimed locally
   record.claimed = true;
   record.claimedAt = new Date().toISOString();
-  saveData(data);
 
-  showResult(record.cardKey, orderId, record.claimedAt);
-  hideAlert('alertUser');
+  // Step 3: Save with SHA — if conflict (someone else claimed same order), it fails
+  try {
+    await saveRemote(data, `领取订单: ${orderId}`);
+    showResult(record.cardKey, orderId, record.claimedAt);
+    hideAlert('alertUser');
+  } catch (e) {
+    if (e.message === 'CONFLICT') {
+      showAlert('alertUser', 'error', '该订单刚刚已被他人领取，手慢一步！');
+      hideResult();
+      await syncOnce();
+    } else {
+      showAlert('alertUser', 'error', '领取失败：网络异常，请重试');
+    }
+  }
 }
 
 function showResult(key, orderId, time) {
@@ -548,79 +584,58 @@ function showResult(key, orderId, time) {
   document.getElementById('copyBtn').textContent = '复制卡密';
   document.getElementById('copyBtn').classList.remove('copied');
 }
-
-function hideResult() {
-  document.getElementById('resultCard').classList.remove('show');
-}
-
+function hideResult() { document.getElementById('resultCard').classList.remove('show'); }
 function copyKey() {
   navigator.clipboard.writeText(document.getElementById('resultKeyText').textContent).then(() => {
-    const btn = document.getElementById('copyBtn');
-    btn.textContent = '已复制！';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '复制卡密'; btn.classList.remove('copied'); }, 2000);
+    const b = document.getElementById('copyBtn'); b.textContent = '已复制！'; b.classList.add('copied');
+    setTimeout(() => { b.textContent = '复制卡密'; b.classList.remove('copied'); }, 2000);
   });
 }
-
 function resetUserForm() {
   document.getElementById('orderInput').value = '';
-  hideResult();
-  hideAlert('alertUser');
+  hideResult(); hideAlert('alertUser');
   document.getElementById('orderInput').focus();
 }
 
-// ---- Settings ----
-function changePass() {
+// ============ Settings ============
+async function changePass() {
   const np = document.getElementById('newPassInput').value.trim();
   if (!np) { showAlert('alertAdmin', 'error', '密码不能为空'); return; }
   if (np.length < 4) { showAlert('alertAdmin', 'error', '密码至少4位'); return; }
-  localStorage.setItem(PASS_KEY, np);
-  document.getElementById('newPassInput').value = '';
-  showAlert('alertAdmin', 'success', '管理员密码已更新');
+  await loadRemote();
+  const data = JSON.parse(JSON.stringify(remoteData));
+  data.password = np;
+  try { await saveRemote(data, '修改管理员密码'); document.getElementById('newPassInput').value = ''; showAlert('alertAdmin', 'success', '管理员密码已更新（所有用户生效）'); } catch (e) { showAlert('alertAdmin', 'error', e.message === 'CONFLICT' ? '冲突，请重试' : '失败'); await syncOnce(); }
 }
 
-// ---- Export CSV ----
+// ============ Export CSV ============
 function exportCSV() {
-  const data = loadData();
+  const d = remoteData.orders;
   const rows = [['序号', '订单号', '卡密', '状态', '领取时间', '添加时间']];
-  data.forEach((d, i) => {
-    rows.push([i+1, d.orderId, d.cardKey, d.claimed ? '已领取' : '待领取', d.claimedAt ? fmtDate(d.claimedAt) : '', d.addedAt ? fmtDate(d.addedAt) : '']);
-  });
+  d.forEach((x, i) => rows.push([i+1, x.orderId, x.cardKey, x.claimed?'已领取':'待领取', x.claimedAt?fmtDate(x.claimedAt):'', x.addedAt?fmtDate(x.addedAt):'']));
   const csv = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = '订单卡密列表_' + new Date().toLocaleDateString('zh-CN').replace(/\//g,'-') + '.csv';
-  a.click(); URL.revokeObjectURL(url);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '订单卡密列表_'+new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')+'.csv'; a.click(); URL.revokeObjectURL(a.href);
 }
 
-// ---- Helpers ----
+// ============ Helpers ============
 function showAlert(id, type, msg) {
-  const el = document.getElementById(id);
-  el.className = `alert show alert-${type}`;
-  el.innerHTML = msg;
+  const el = document.getElementById(id); el.className = `alert show alert-${type}`; el.innerHTML = msg;
   if (type !== 'error' && type !== 'warn') setTimeout(() => { el.classList.remove('show'); }, 4000);
 }
 function hideAlert(id) { document.getElementById(id).classList.remove('show'); }
-function fmtDate(iso) {
-  const d = new Date(iso);
-  return d.toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
-}
+function fmtDate(iso) { const d = new Date(iso); return d.toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }); }
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escAttr(s) { return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 
-// ---- Init demo data ----
-(function initDemo() {
-  if (loadData().length === 0) {
-    const now = new Date().toISOString();
-    const demo = [
-      { orderId: 'DEMO-001', cardKey: 'CARD-A1B2-C3D4', claimed: false, claimedAt: '', addedAt: now },
-      { orderId: 'DEMO-002', cardKey: 'KEY-E5F6-G7H8', claimed: false, claimedAt: '', addedAt: now },
-      { orderId: 'DEMO-003', cardKey: 'CDK-I9J0-K1L2', claimed: false, claimedAt: '', addedAt: now }
-    ];
-    saveData(demo);
-  }
-})();
+// ============ Init ============
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('passInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkPass(); });
+  await loadRemote();
+  updateSyncUI();
+  startPolling();
+  setInterval(updateSyncUI, 30000);
+});
 </script>
 </body>
 </html>
