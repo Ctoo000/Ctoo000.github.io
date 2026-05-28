@@ -18,8 +18,8 @@
     {
       "orderId": "345",
       "cardKey": "ert",
-      "claimed": false,
-      "claimedAt": "",
+      "claimed": true,
+      "claimedAt": "2026-05-28T08:53:01.982Z",
       "addedAt": "2026-05-28T08:40:16.295Z"
     },
     {
