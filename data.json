@@ -2,13 +2,6 @@
   "password": "888888",
   "orders": [
     {
-      "orderId": "123",
-      "cardKey": "ly",
-      "claimed": true,
-      "claimedAt": "2026-05-28T08:20:22.750Z",
-      "addedAt": "2026-05-28T08:19:16.520Z"
-    },
-    {
       "orderId": "456",
       "cardKey": "hhy",
       "claimed": true,
