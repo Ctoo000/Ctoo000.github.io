@@ -42,13 +42,6 @@
       "claimed": true,
       "claimedAt": "2026-05-28T08:28:25.252Z",
       "addedAt": "2026-05-28T08:28:05.159Z"
-    },
-    {
-      "orderId": "asd",
-      "cardKey": "567",
-      "claimed": true,
-      "claimedAt": "2026-05-28T08:28:46.078Z",
-      "addedAt": "2026-05-28T08:28:05.160Z"
     }
   ]
 }
