@@ -4,8 +4,8 @@
     {
       "orderId": "123",
       "cardKey": "qwe",
-      "claimed": false,
-      "claimedAt": "",
+      "claimed": true,
+      "claimedAt": "2026-05-28T08:52:12.256Z",
       "addedAt": "2026-05-28T08:40:16.295Z"
     },
     {
