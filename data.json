@@ -1,12 +1,4 @@
 {
   "password": "888888",
-  "orders": [
-    {
-      "orderId": "qwe",
-      "cardKey": "123",
-      "claimed": true,
-      "claimedAt": "2026-05-28T08:28:25.252Z",
-      "addedAt": "2026-05-28T08:28:05.159Z"
-    }
-  ]
+  "orders": []
 }
